@@ -4,6 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Visual Bar Timer</title>
+  
+  <!-- PWA Manifest & Theme -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#121212">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body {
@@ -191,8 +198,17 @@
     Visual Bar Timer • Mobile Responsive Edition
   </footer>
 
-  <!-- JavaScript Logic with Background Timestamp Sync -->
+  <!-- JavaScript Logic -->
   <script>
+    // サービスワーカーの登録
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then((reg) => console.log('ServiceWorker registered: ', reg.scope))
+          .catch((err) => console.log('ServiceWorker registration failed: ', err));
+      });
+    }
+
     let currentMode = 'normal';
     let currentPhase = 'work';
     
@@ -229,34 +245,31 @@
     const cycleCounter = document.getElementById('cycleCounter');
     const currentCycleVal = document.getElementById('currentCycleVal');
 
-    let audioCtx = null;
+    let audioCtx = function() { return null; };
 
-    // 音量を大きめに設定（gainを0.8に強化）
     function playLoudBeep(frequency = 880, count = 4) {
       try {
-        if (!audioCtx) {
-          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if (audioCtx.state === 'suspended') {
-          audioCtx.resume();
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioContext();
+        if (ctx.state === 'suspended') {
+          ctx.resume();
         }
 
         for (let i = 0; i < count; i++) {
-          const osc = audioCtx.createOscillator();
-          const gain = audioCtx.createGain();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
 
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(frequency, audioCtx.currentTime + i * 0.18);
+          osc.frequency.setValueAtTime(frequency, ctx.currentTime + i * 0.18);
 
-          // 音量を大きめ（0.8）に設定
-          gain.gain.setValueAtTime(0.8, audioCtx.currentTime + i * 0.18);
-          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.18 + 0.15);
+          gain.gain.setValueAtTime(0.8, ctx.currentTime + i * 0.18);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.18 + 0.15);
 
           osc.connect(gain);
-          gain.connect(audioCtx.destination);
+          gain.connect(ctx.destination);
 
-          osc.start(audioCtx.currentTime + i * 0.18);
-          osc.stop(audioCtx.currentTime + i * 0.18 + 0.15);
+          osc.start(ctx.currentTime + i * 0.18);
+          osc.stop(ctx.currentTime + i * 0.18 + 0.15);
         }
       } catch (e) {
         console.log('Audio error:', e);
@@ -331,11 +344,6 @@
     function startTimer() {
       if (timerInterval) return;
 
-      if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-
-      // 終了予定時刻を計算して保存（アプリを閉じても復元できるようにする）
       const endTime = Date.now() + remainingSeconds * 1000;
       localStorage.setItem('timerEndTime', endTime);
       localStorage.setItem('totalTargetSeconds', totalTargetSeconds);
@@ -384,7 +392,6 @@
     function handleTimerEnd() {
       stopTimer();
 
-      // 音を大きめに鳴らすのと同時にポップアップ（alert）を出す
       if (currentMode === 'normal') {
         playLoudBeep(880, 5);
         alert('Time is up!');
@@ -514,7 +521,6 @@
       setupTimerDuration();
     });
 
-    // ページ読み込み時に、裏で動いていたタイマーの残り時間を復元チェック
     initBars();
     const savedEndTime = localStorage.getItem('timerEndTime');
     if (savedEndTime) {
@@ -526,7 +532,6 @@
       if (leftMs > 0) {
         remainingSeconds = Math.ceil(leftMs / 1000);
         updateDisplay();
-        // 自動で再開
         startBtn.click();
       } else {
         setupTimerDuration();
