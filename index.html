@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Visual Bar Timer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background-color: #121212;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      touch-action: manipulation;
+    }
+
+    /* Standard Monospace Digital Display Font */
+    .digital-mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Bar Segments */
+    .bar-segment {
+      flex: 1 1 0%;
+      height: 100%;
+      min-height: 48px;
+      border-radius: 4px;
+      transition: background-color 0.2s ease, opacity 0.2s ease, border-color 0.2s ease;
+    }
+
+    /* Custom Slider */
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: #334155;
+      height: 8px;
+      border-radius: 4px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 22px;
+      width: 22px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+    }
+
+    /* Active Tab Styles */
+    .tab-btn.normal-active {
+      background-color: #0284c7;
+      color: #ffffff;
+      border-color: #38bdf8;
+    }
+
+    .tab-btn.repeat-active {
+      background-color: #059669;
+      color: #ffffff;
+      border-color: #34d399;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-3 sm:p-5 select-none">
+
+  <!-- Header -->
+  <header class="w-full text-center py-2">
+    <h1 class="text-xl sm:text-2xl font-bold tracking-widest text-slate-300 flex items-center justify-center gap-2">
+    </h1>
+  </header>
+
+  <!-- Main Timer Layout -->
+  <main class="w-full my-auto flex flex-col items-center gap-4 max-w-xl mx-auto">
+
+    <!-- Timer Card -->
+    <div class="w-full bg-[#1e1e1e] border border-[#2a2a2a] rounded-2xl p-4 sm:p-6 shadow-2xl flex flex-col gap-4">
+      
+      <!-- Cycle Status Badge -->
+      <div class="flex justify-end items-center text-xs sm:text-sm px-1">
+        <span id="cycleCounter" class="text-slate-400 font-mono hidden">
+          Round: <span id="currentCycleVal" class="text-emerald-400 font-bold">1</span>
+        </span>
+      </div>
+
+      <!-- Visual Bar Indicator + Digital Display -->
+      <div class="flex flex-col md:flex-row items-stretch gap-3 w-full">
+        
+        <!-- Visual Bar Indicator Container -->
+        <div id="barContainer" class="bg-[#334155] border-2 border-[#475569] p-2 sm:p-3 rounded-xl flex-1 flex gap-1.5 sm:gap-2 justify-between items-center min-h-[64px] sm:min-h-[80px]">
+          <!-- 10 Bar segments rendered via JS -->
+        </div>
+
+        <!-- Digital LCD Screen -->
+        <div class="bg-[#090d16] border border-[#334155] rounded-xl px-4 py-3 flex flex-col items-center justify-center min-w-[150px] sm:min-w-[180px] shadow-inner">
+          <span id="phaseLabel" class="text-[10px] sm:text-xs text-sky-400 font-bold uppercase tracking-widest mb-0.5">REMAINING</span>
+          <div id="timeDisplay" class="digital-mono text-4xl sm:text-5xl font-bold text-[#38bdf8] tracking-widest drop-shadow-[0_0_8px_rgba(56,189,248,0.4)]">
+            30:00
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="w-full flex gap-2 sm:gap-3">
+      <button id="startBtn" class="flex-1 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700 text-slate-200 font-bold py-3.5 sm:py-4 px-2 rounded-xl text-base sm:text-lg shadow-lg transition-all flex items-center justify-center gap-2">
+        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        START
+      </button>
+      <button id="stopBtn" disabled class="flex-1 bg-[#475569] hover:bg-slate-500 active:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3.5 sm:py-4 px-2 rounded-xl text-base sm:text-lg shadow-lg transition-all flex items-center justify-center gap-2">
+        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+        STOP
+      </button>
+      <button id="resetBtn" class="flex-1 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700 text-slate-200 font-bold py-3.5 sm:py-4 px-2 rounded-xl text-base sm:text-lg shadow-lg transition-all flex items-center justify-center gap-2">
+        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+        RESET
+      </button>
+    </div>
+
+    <!-- Mode & Settings Control Panel -->
+    <div class="w-full bg-[#1e1e1e] border border-[#2a2a2a] rounded-2xl p-4 flex flex-col gap-4">
+      
+      <!-- Tab Switcher -->
+      <div class="flex bg-[#121212] p-1 rounded-xl border border-slate-800">
+        <button id="normalModeTab" class="tab-btn normal-active flex-1 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all border border-transparent">
+          Standard Mode
+        </button>
+        <button id="repeatModeTab" class="tab-btn flex-1 py-2 text-xs sm:text-sm font-bold rounded-lg text-slate-400 transition-all border border-transparent">
+          Repeat Mode
+        </button>
+      </div>
+
+      <!-- Panel 1: Standard Mode Settings -->
+      <div id="normalSettingsPanel" class="flex flex-col gap-3">
+        <div class="flex justify-between items-center">
+          <label class="text-xs sm:text-sm font-semibold text-slate-300">Set Timer Duration (Max 60 min)</label>
+          <span class="text-sm font-bold text-sky-400 font-mono"><span id="normalTimeVal">30</span> min</span>
+        </div>
+
+        <input type="range" id="normalTimeSlider" min="1" max="60" value="30" class="w-full cursor-pointer">
+
+        <div class="grid grid-cols-4 sm:grid-cols-7 gap-1.5 pt-1">
+          <button class="quick-btn bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold py-2 rounded-lg border border-slate-700" data-min="5">5m</button>
+          <button class="quick-btn bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold py-2 rounded-lg border border-slate-700" data-min="10">10m</button>
+          <button class="quick-btn bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold py-2 rounded-lg border border-slate-700" data-min="15">15m</button>
+          <button class="quick-btn bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold py-2 rounded-lg border border-slate-700" data-min="25">25m</button>
+          <button class="quick-btn bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold py-2 rounded-lg border border-slate-700" data-min="30">30m</button>
+          <button class="quick-btn bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold py-2 rounded-lg border border-slate-700" data-min="50">50m</button>
+          <button class="quick-btn bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold py-2 rounded-lg border border-slate-700" data-min="60">60m</button>
+        </div>
+      </div>
+
+      <!-- Panel 2: Repeat Mode Settings -->
+      <div id="repeatSettingsPanel" class="hidden flex-col gap-4">
+        <div class="flex flex-col gap-1.5">
+          <div class="flex justify-between items-center">
+            <span class="text-xs sm:text-sm font-semibold text-emerald-400 flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Work Interval
+            </span>
+            <span class="text-sm font-bold text-emerald-400 font-mono"><span id="workTimeVal">50</span> min</span>
+          </div>
+          <input type="range" id="workTimeSlider" min="1" max="60" value="50" class="w-full">
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <div class="flex justify-between items-center">
+            <span class="text-xs sm:text-sm font-semibold text-amber-400 flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-amber-400"></span> Break Interval
+            </span>
+            <span class="text-sm font-bold text-amber-400 font-mono"><span id="breakTimeVal">10</span> min</span>
+          </div>
+          <input type="range" id="breakTimeSlider" min="1" max="60" value="10" class="w-full">
+        </div>
+
+        <div class="flex gap-2 pt-1">
+          <button id="presetPomodoro" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold py-2 rounded-lg border border-slate-700">
+            Pomodoro (25m / 5m)
+          </button>
+          <button id="presetLongWork" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold py-2 rounded-lg border border-slate-700">
+            Focus (50m / 10m)
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <footer class="text-center text-xs text-slate-500 py-2">
+    Visual Bar Timer • Mobile Responsive Edition
+  </footer>
+
+  <!-- JavaScript Logic with Background Timestamp Sync -->
+  <script>
+    let currentMode = 'normal';
+    let currentPhase = 'work';
+    
+    let normalMinutes = 30;
+    let workMinutes = 50;
+    let breakMinutes = 10;
+    
+    let totalTargetSeconds = 30 * 60;
+    let remainingSeconds = 30 * 60;
+    let timerInterval = null;
+    let currentCycle = 1;
+    const NUM_BARS = 10;
+
+    const barContainer = document.getElementById('barContainer');
+    const timeDisplay = document.getElementById('timeDisplay');
+    const phaseLabel = document.getElementById('phaseLabel');
+
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    const normalModeTab = document.getElementById('normalModeTab');
+    const repeatModeTab = document.getElementById('repeatModeTab');
+    const normalSettingsPanel = document.getElementById('normalSettingsPanel');
+    const repeatSettingsPanel = document.getElementById('repeatSettingsPanel');
+
+    const normalTimeSlider = document.getElementById('normalTimeSlider');
+    const normalTimeVal = document.getElementById('normalTimeVal');
+    const workTimeSlider = document.getElementById('workTimeSlider');
+    const workTimeVal = document.getElementById('workTimeVal');
+    const breakTimeSlider = document.getElementById('breakTimeSlider');
+    const breakTimeVal = document.getElementById('breakTimeVal');
+
+    const cycleCounter = document.getElementById('cycleCounter');
+    const currentCycleVal = document.getElementById('currentCycleVal');
+
+    let audioCtx = null;
+
+    // 音量を大きめに設定（gainを0.8に強化）
+    function playLoudBeep(frequency = 880, count = 4) {
+      try {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+
+        for (let i = 0; i < count; i++) {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(frequency, audioCtx.currentTime + i * 0.18);
+
+          // 音量を大きめ（0.8）に設定
+          gain.gain.setValueAtTime(0.8, audioCtx.currentTime + i * 0.18);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.18 + 0.15);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          osc.start(audioCtx.currentTime + i * 0.18);
+          osc.stop(audioCtx.currentTime + i * 0.18 + 0.15);
+        }
+      } catch (e) {
+        console.log('Audio error:', e);
+      }
+    }
+
+    function initBars() {
+      barContainer.innerHTML = '';
+      for (let i = 0; i < NUM_BARS; i++) {
+        const seg = document.createElement('div');
+        seg.className = 'bar-segment border border-[#475569]/30';
+        barContainer.appendChild(seg);
+      }
+    }
+
+    function updateDisplay() {
+      const mins = Math.floor(remainingSeconds / 60);
+      const secs = remainingSeconds % 60;
+      timeDisplay.textContent = 
+        `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+      const ratio = remainingSeconds / totalTargetSeconds;
+      const activeBarCount = Math.ceil(ratio * NUM_BARS);
+
+      let activeColor = '#38bdf8';
+      if (currentMode === 'repeat') {
+        activeColor = (currentPhase === 'work') ? '#34d399' : '#fbbf24';
+      }
+
+      const segments = barContainer.querySelectorAll('.bar-segment');
+      segments.forEach((seg, idx) => {
+        if (idx < activeBarCount) {
+          seg.style.backgroundColor = activeColor;
+          seg.style.opacity = '1';
+          seg.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+        } else {
+          seg.style.backgroundColor = '#1e293b';
+          seg.style.opacity = '0.6';
+          seg.style.borderColor = 'transparent';
+        }
+      });
+    }
+
+    function setupTimerDuration() {
+      stopTimer();
+      localStorage.removeItem('timerEndTime');
+
+      if (currentMode === 'normal') {
+        totalTargetSeconds = normalMinutes * 60;
+        remainingSeconds = totalTargetSeconds;
+        phaseLabel.textContent = 'REMAINING';
+        phaseLabel.className = 'text-[10px] sm:text-xs text-sky-400 font-bold uppercase tracking-widest mb-0.5';
+        timeDisplay.style.color = '#38bdf8';
+      } else {
+        if (currentPhase === 'work') {
+          totalTargetSeconds = workMinutes * 60;
+          phaseLabel.textContent = 'WORK';
+          phaseLabel.className = 'text-[10px] sm:text-xs text-emerald-400 font-bold uppercase tracking-widest mb-0.5';
+          timeDisplay.style.color = '#34d399';
+        } else {
+          totalTargetSeconds = breakMinutes * 60;
+          phaseLabel.textContent = 'BREAK';
+          phaseLabel.className = 'text-[10px] sm:text-xs text-amber-400 font-bold uppercase tracking-widest mb-0.5';
+          timeDisplay.style.color = '#fbbf24';
+        }
+        remainingSeconds = totalTargetSeconds;
+      }
+
+      updateDisplay();
+    }
+
+    function startTimer() {
+      if (timerInterval) return;
+
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      // 終了予定時刻を計算して保存（アプリを閉じても復元できるようにする）
+      const endTime = Date.now() + remainingSeconds * 1000;
+      localStorage.setItem('timerEndTime', endTime);
+      localStorage.setItem('totalTargetSeconds', totalTargetSeconds);
+      localStorage.setItem('currentMode', currentMode);
+      localStorage.setItem('currentPhase', currentPhase);
+
+      startBtn.disabled = true;
+      startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      stopBtn.disabled = false;
+      disableInputs(true);
+
+      timerInterval = setInterval(() => {
+        checkAndTick();
+      }, 1000);
+    }
+
+    function checkAndTick() {
+      const savedEndTime = localStorage.getItem('timerEndTime');
+      if (!savedEndTime) return;
+
+      const now = Date.now();
+      const leftMs = savedEndTime - now;
+
+      if (leftMs > 0) {
+        remainingSeconds = Math.ceil(leftMs / 1000);
+        updateDisplay();
+      } else {
+        remainingSeconds = 0;
+        updateDisplay();
+        handleTimerEnd();
+      }
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+      localStorage.removeItem('timerEndTime');
+      startBtn.disabled = false;
+      startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      stopBtn.disabled = true;
+      disableInputs(false);
+    }
+
+    function handleTimerEnd() {
+      stopTimer();
+
+      // 音を大きめに鳴らすのと同時にポップアップ（alert）を出す
+      if (currentMode === 'normal') {
+        playLoudBeep(880, 5);
+        alert('Time is up!');
+        setupTimerDuration();
+      } else {
+        if (currentPhase === 'work') {
+          playLoudBeep(660, 4);
+          alert('Work session finished! Starting break.');
+          currentPhase = 'break';
+          setupTimerDuration();
+          startTimer();
+        } else {
+          playLoudBeep(1000, 6);
+          alert('Break finished! Back to work.');
+          currentPhase = 'work';
+          currentCycle++;
+          currentCycleVal.textContent = currentCycle;
+          setupTimerDuration();
+          startTimer();
+        }
+      }
+    }
+
+    function disableInputs(disabled) {
+      normalTimeSlider.disabled = disabled;
+      workTimeSlider.disabled = disabled;
+      breakTimeSlider.disabled = disabled;
+      document.querySelectorAll('.quick-btn').forEach(btn => btn.disabled = disabled);
+      document.getElementById('presetPomodoro').disabled = disabled;
+      document.getElementById('presetLongWork').disabled = disabled;
+    }
+
+    startBtn.addEventListener('click', startTimer);
+    stopBtn.addEventListener('click', stopTimer);
+    resetBtn.addEventListener('click', () => {
+      currentCycle = 1;
+      currentCycleVal.textContent = currentCycle;
+      currentPhase = 'work';
+      setupTimerDuration();
+    });
+
+    normalModeTab.addEventListener('click', () => {
+      if (currentMode === 'normal') return;
+      currentMode = 'normal';
+      
+      normalModeTab.classList.add('normal-active');
+      normalModeTab.classList.remove('text-slate-400');
+      repeatModeTab.classList.remove('repeat-active');
+      repeatModeTab.classList.add('text-slate-400');
+
+      normalSettingsPanel.classList.remove('hidden');
+      normalSettingsPanel.classList.add('flex');
+      repeatSettingsPanel.classList.add('hidden');
+      repeatSettingsPanel.classList.remove('flex');
+
+      cycleCounter.classList.add('hidden');
+      setupTimerDuration();
+    });
+
+    repeatModeTab.addEventListener('click', () => {
+      if (currentMode === 'repeat') return;
+      currentMode = 'repeat';
+
+      repeatModeTab.classList.add('repeat-active');
+      repeatModeTab.classList.remove('text-slate-400');
+      normalModeTab.classList.remove('normal-active');
+      normalModeTab.classList.add('text-slate-400');
+
+      repeatSettingsPanel.classList.remove('hidden');
+      repeatSettingsPanel.classList.add('flex');
+      normalSettingsPanel.classList.add('hidden');
+      normalSettingsPanel.classList.remove('flex');
+
+      cycleCounter.classList.remove('hidden');
+
+      currentPhase = 'work';
+      currentCycle = 1;
+      currentCycleVal.textContent = currentCycle;
+      setupTimerDuration();
+    });
+
+    normalTimeSlider.addEventListener('input', (e) => {
+      normalMinutes = parseInt(e.target.value);
+      normalTimeVal.textContent = normalMinutes;
+      setupTimerDuration();
+    });
+
+    document.querySelectorAll('.quick-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const min = parseInt(btn.getAttribute('data-min'));
+        normalMinutes = min;
+        normalTimeSlider.value = min;
+        normalTimeVal.textContent = min;
+        setupTimerDuration();
+      });
+    });
+
+    workTimeSlider.addEventListener('input', (e) => {
+      workMinutes = parseInt(e.target.value);
+      workTimeVal.textContent = workMinutes;
+      if (currentMode === 'repeat') setupTimerDuration();
+    });
+
+    breakTimeSlider.addEventListener('input', (e) => {
+      breakMinutes = parseInt(e.target.value);
+      breakTimeVal.textContent = breakMinutes;
+      if (currentMode === 'repeat') setupTimerDuration();
+    });
+
+    document.getElementById('presetPomodoro').addEventListener('click', () => {
+      workMinutes = 25;
+      breakMinutes = 5;
+      workTimeSlider.value = 25;
+      breakTimeSlider.value = 5;
+      workTimeVal.textContent = 25;
+      breakTimeVal.textContent = 5;
+      setupTimerDuration();
+    });
+
+    document.getElementById('presetLongWork').addEventListener('click', () => {
+      workMinutes = 50;
+      breakMinutes = 10;
+      workTimeSlider.value = 50;
+      breakTimeSlider.value = 10;
+      workTimeVal.textContent = 50;
+      breakTimeVal.textContent = 10;
+      setupTimerDuration();
+    });
+
+    // ページ読み込み時に、裏で動いていたタイマーの残り時間を復元チェック
+    initBars();
+    const savedEndTime = localStorage.getItem('timerEndTime');
+    if (savedEndTime) {
+      const savedTotal = localStorage.getItem('totalTargetSeconds');
+      if (savedTotal) totalTargetSeconds = parseInt(savedTotal);
+      
+      const now = Date.now();
+      const leftMs = savedEndTime - now;
+      if (leftMs > 0) {
+        remainingSeconds = Math.ceil(leftMs / 1000);
+        updateDisplay();
+        // 自動で再開
+        startBtn.click();
+      } else {
+        setupTimerDuration();
+      }
+    } else {
+      setupTimerDuration();
+    }
+  </script>
+</body>
+</html>
